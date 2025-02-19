@@ -17,11 +17,11 @@ RSS_FEEDS = {
     "РИА Новости": "https://ria.ru/export/rss2/index.xml",
     "ТАСС": "https://tass.ru/rss/v2.xml",
 
-    "StopGame": "https://stopgame.ru/rss/rss_news.xml",  # Проверенная ссылка
-    "Kanobu": "https://kanobu.ru/rss/articles/",  # Альтернативная ссылка
-    "IXBT Games": "https://www.ixbt.com/export/games.rss",  # Проверенная ссылка
-    "PlayGround": "https://www.playground.ru/rss/news.xml",  # Рабочая ссылка
-    "GameTech": "https://www.gametech.ru/rss/news/"  # Альтернативная ссылка
+    "StopGame": "https://stopgame.ru/rss/rss_news.xml",  
+    "Kanobu": "https://kanobu.ru/rss/articles/", 
+    "IXBT Games": "https://www.ixbt.com/export/games.rss", 
+    "PlayGround": "https://www.playground.ru/rss/news.xml", 
+    "GameTech": "https://www.gametech.ru/rss/news/"  
 }
 
 @dp.message(Command("start"))
@@ -66,7 +66,6 @@ async def send_gaming_news(message: Message):
         try:
             feed = feedparser.parse(url)
             if feed.entries:
-                # Отправляем первые 3 новости из каждого источника
                 for entry in feed.entries[:3]:
                     news_message = (
                         f"<b>{source}</b>\n\n"

@@ -4,11 +4,10 @@ from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 import feedparser
 import asyncio
-from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO)
 
-API_TOKEN = ''
+API_TOKEN = '8106970514:AAHzqTa-wKim6XauPoSiiVTm89Ic1h9QXBg'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
@@ -23,13 +22,12 @@ RSS_FEEDS = {
     "GameTech": "https://www.gametech.ru/rss/news/"
 }
 
+# Глобальные переменные для хранения состояния новостей
 news_items = []
 current_index = 0
-last_update_time = None
-CACHE_DURATION = timedelta(minutes=10) 
 
 keyboard = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="/news"), KeyboardButton(text="/gaming"), KeyboardButton(text="/update")]
+    [KeyboardButton(text="/news"), KeyboardButton(text="/gaming")]
 ], resize_keyboard=True)
 
 @dp.message(Command("start"))
@@ -37,60 +35,57 @@ async def send_welcome(message: Message):
     await message.answer(
         "Привет! Я бот, который присылает новости с русских сайтов и новости про игры.\n"
         "Используй команду /news, чтобы получить свежие новости.\n"
-        "Используй команду /gaming, чтобы получить новости про игры.\n"
-        "Используй команду /update, чтобы обновить новости.",
+        "Используй команду /gaming, чтобы получить новости про игры.",
         reply_markup=keyboard
     )
 
-@dp.message(Command("update"))
-async def update_news(message: Message):
-    global last_update_time
-    last_update_time = None  
-    await message.answer("Новости будут обновлены при следующем запросе.", reply_markup=keyboard)
+@dp.message(Command("news"))
+async def send_news(message: Message):
+    global news_items, current_index
+    await message.answer("Собираю новости... Пожалуйста, подождите.", reply_markup=keyboard)
 
-async def fetch_news(feed_type):
-    global news_items, last_update_time
-    if last_update_time and datetime.now() - last_update_time < CACHE_DURATION:
-        return  
-
+    general_feeds = {k: v for k, v in RSS_FEEDS.items() if k not in ["StopGame", "Kanobu", "IXBT Games", "PlayGround", "GameTech"]}
     news_items = []
-    feeds = {k: v for k, v in RSS_FEEDS.items() if k not in ["StopGame", "Kanobu", "IXBT Games", "PlayGround", "GameTech"]} if feed_type == "news" else \
-            {k: v for k, v in RSS_FEEDS.items() if k in ["StopGame", "Kanobu", "IXBT Games", "PlayGround", "GameTech"]}
 
-    for source, url in feeds.items():
+    for source, url in general_feeds.items():
         try:
             feed = feedparser.parse(url)
             if feed.entries:
                 for entry in feed.entries[:3]:
                     news_items.append((source, entry))
             else:
-                logging.warning(f"Не удалось получить новости из {source}.")
+                await message.answer(f"Не удалось получить новости из {source}.", reply_markup=keyboard)
         except Exception as e:
             logging.error(f"Ошибка при получении новостей из {source}: {e}")
+            await message.answer(f"Ошибка при получении новостей из {source}.", reply_markup=keyboard)
 
-    last_update_time = datetime.now()
-
-@dp.message(Command("news"))
-async def send_news(message: Message):
-    global current_index
-    await message.answer("Собираю новости... Пожалуйста, подождите.", reply_markup=keyboard)
-    await fetch_news("news")
     if news_items:
         current_index = 0
         await show_news(message)
-    else:
-        await message.answer("Не удалось загрузить новости. Попробуйте позже.", reply_markup=keyboard)
 
 @dp.message(Command("gaming"))
 async def send_gaming_news(message: Message):
-    global current_index
+    global news_items, current_index
     await message.answer("Собираю игровые новости... Пожалуйста, подождите.", reply_markup=keyboard)
-    await fetch_news("gaming")
+
+    gaming_feeds = {k: v for k, v in RSS_FEEDS.items() if k in ["StopGame", "Kanobu", "IXBT Games", "PlayGround", "GameTech"]}
+    news_items = []
+
+    for source, url in gaming_feeds.items():
+        try:
+            feed = feedparser.parse(url)
+            if feed.entries:
+                for entry in feed.entries[:3]:
+                    news_items.append((source, entry))
+            else:
+                await message.answer(f"Не удалось получить новости из {source}.", reply_markup=keyboard)
+        except Exception as e:
+            logging.error(f"Ошибка при получении новостей из {source}: {e}")
+            await message.answer(f"Ошибка при получении новостей из {source}.", reply_markup=keyboard)
+
     if news_items:
         current_index = 0
         await show_news(message)
-    else:
-        await message.answer("Не удалось загрузить новости. Попробуйте позже.", reply_markup=keyboard)
 
 async def show_news(message: Message):
     global current_index
@@ -100,30 +95,28 @@ async def show_news(message: Message):
             f"<b>{source}</b>\n\n"
             f"<b>{entry.title}</b>\n"
             f"{entry.description}\n"
-            f"<a href='{entry.link}'>Читать далее</a>\n\n"
-            f"Новость {current_index + 1} из {len(news_items)}"
+            f"<a href='{entry.link}'>Читать далее</a>"
         )
+        # Создаем клавиатуру с кнопками "Предыдущая" и "Следующая"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="⬅️ Предыдущая", callback_data="prev_news"),
-                InlineKeyboardButton(text="В начало", callback_data="start_news"),
                 InlineKeyboardButton(text="Следующая ➡️", callback_data="next_news")
             ]
         ])
         await message.answer(news_message, parse_mode="HTML", reply_markup=keyboard)
     else:
-        await message.answer("Новости закончились.", reply_markup=keyboard)
+        await message.answer("Новости закончились.", reply_markup="keyboard")
 
-@dp.callback_query(lambda c: c.data in ["next_news", "prev_news", "start_news"])
+@dp.callback_query(lambda c: c.data in ["next_news", "prev_news"])
 async def process_callback_navigation(callback_query: CallbackQuery):
     global current_index
     if callback_query.data == "next_news":
         current_index += 1
     elif callback_query.data == "prev_news":
         current_index -= 1
-    elif callback_query.data == "start_news":
-        current_index = 0
 
+    # Проверяем, чтобы индекс не вышел за пределы списка
     if current_index < 0:
         current_index = 0
     elif current_index >= len(news_items):

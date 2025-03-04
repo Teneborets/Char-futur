@@ -9,7 +9,7 @@ from urllib.parse import urljoin
 
 logging.basicConfig(level=logging.INFO)
 
-API_TOKEN = '8106970514:AAHzqTa-wKim6XauPoSiiVTm89Ic1h9QXBg'
+API_TOKEN = ''
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
